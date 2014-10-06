@@ -40,8 +40,7 @@ function register($data = NULL){
 	if(!empty($data['phone']) && !empty($data['username']))
 	{
 		$comndtion = "OR";
-	    $array = array('phone'=>$data['phone'],'username'=>$data['username'],
-		               'email'=>$data['email']);
+	    $array = array('phone'=>$data['phone'],'username'=>$data['username']);
 		$res = $db->select('users',$array,$comndtion);	
 		if(mysql_num_rows($res)){
 			
@@ -93,7 +92,7 @@ function login($data){
 	global $db;
 	$msg = array();
 	$users = array();
-	if(!empty($data['email']) && !empty($data['mode']))
+	if(!empty($data['email']) && !empty($data['mode']) || !empty($data['phone']) && !empty($data['mode']))
 	{
 		if($data['mode'] == 'user'){
 		
@@ -1707,7 +1706,23 @@ function emailVerfication($data = NULL){
 	
 	  if(!empty($data['userid']) && !empty($data['email'])){
 	  
-	  	$hash_code = md5($data['email']);
+	  	
+		$con = 'AND';
+		
+		$arr = array('email'=>$data['email']);
+		
+		$mail_check = $db->select('users',$arr,$con);
+		
+		if(mysql_num_rows($mail_check)){
+		
+			$msg['return'] = 0;
+			
+			$msg['result'] = 'error';
+					
+			$msg['data']   = 'Email already exist with us.please try another email';
+		} else {
+		
+		$hash_code = md5($data['email']);
 		
 		$url = 'http://deftsoft.info/paxiapp/verification.php?token='.$hash_code;
 	  	
@@ -1725,7 +1740,7 @@ function emailVerfication($data = NULL){
 		
 		$send_mail = mail($to,$subject,$message,$headers);
 		
-		if($send_mail){
+		//if($send_mail){
 			
 			$arr = array('hash_code'=>$hash_code);
 			$db->update('users',$arr,$data['email'],'email');
@@ -1736,7 +1751,7 @@ function emailVerfication($data = NULL){
 			
 			$userArray['password'] =  $data['password'];
 			
-			$userArray['email_active'] =  'no'; 
+			$userArray['email_active'] =  'yes'; 
 			
 			$column = 'id';
 			
@@ -1775,15 +1790,15 @@ function emailVerfication($data = NULL){
 				
 				$msg['data']   = 'Some error occured.please try again later';
 			}
-		} else {
+		//} else {
 		
-				$msg['return'] = 0;
+				//$msg['return'] = 0;
 		
-				$msg['result'] = 'error';
+				//$msg['result'] = 'error';
 				
-				$msg['data']   = 'Some error occured.While sending the email';
-	  } 
-	  
+				//$msg['data']   = 'Some error occured.While sending the email';
+	 // } 
+	 }
 	  }else {
 	 
 	 	$msg['return'] = 0;
@@ -1851,7 +1866,7 @@ function cardDetails($data = NULL){
 
 }
 /***************************************************************************************
-*	Function for pick up location
+*	Function for pick up location of the users
 *************************************************************************************/
 function pickUpLocation($data = NULL){
 
@@ -1899,5 +1914,50 @@ function pickUpLocation($data = NULL){
 }
 /*************************************************************************************
 *	Function for  
-****sd**********************************************************************************/
+**************************************************************************************/
+function setCardDetails($data = NULL){
+	global $db;
+	
+	$msg = array();
+	
+	$drivers = array();
+	  if(!empty($data['userid'])){
+	  	
+		unset($data['method']);
+		
+		
+		$array = array(
+						'card_type'=>$data['card_type'],
+						'account_number'=>$data['account_number'],
+						'credit_card_name'=>$data['credit_card_name'],
+						'exp_date'=>$data['exp_date']
+					   );
+		$res = $db->update('users',$array,$data['userid'],'id');
+		
+		if($res){
+				
+				$msg['return'] = 1;
+		
+				$msg['result'] = 'success';
+			
+				$msg['result'] = 'Registration successfully';
+		} else {
+			
+				$msg['return'] = 0;
+		
+				$msg['result'] = 'error';
+				
+				$msg['data']   = 'Some error occured.Please try again later';
+		}
+	  } else {
+	  	
+		$msg['return'] = 0;
+		
+		$msg['result'] = 'error';
+		
+	    $msg['data']   = 'fields are required';
+	 }
+   echo jsonreturn($msg);
+	  
+}
 ?>
