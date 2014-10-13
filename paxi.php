@@ -105,9 +105,9 @@ function login($data){
 		
 		$condition = "AND";
 	    $sql = "SELECT * FROM users 
-				WHERE email = '".$data['email']."' AND password = '".$data['password']."'
+				WHERE email = '".$data['email']."' AND password = '".md5($data['password'])."'
 				 
-				OR phone = '".@$data['phone']."' AND password = '".$data['password']."'
+				OR phone = '".@$data['phone']."' AND password = '".md5($data['password'])."'
 				 ";
 				
 		$res = mysql_query($sql);	
@@ -139,8 +139,8 @@ function login($data){
 	  
 	  	$condition = "AND";
 	    $sql = "SELECT * FROM drivers 
-				WHERE email = '".$data['email']."' AND password = '".$data['password']."'
-				OR phone = '".@$data['phone']."' AND password = '".$data['password']."'";
+				WHERE email = '".$data['email']."' AND password = '".md5($data['password'])."'
+				OR phone = '".@$data['phone']."' AND password = '".md5($data['password'])."'";
 				
 		$res = mysql_query($sql);	
 		if(mysql_num_rows($res)){
@@ -186,15 +186,21 @@ function forgotpassword($data = NULL){
 			while($row = mysql_fetch_assoc($res)){
 				$password = $row['password'];
 				$username = $row['username'];
+				$id       = $row['id'];
 			}
+			$pass = $username.''.rand(1000,99999);
 			$to = $data['email'];
 			$subject = "Password Recovery";
 			$message = "Your password. \n \n";
-			$message .= 'password:'.$password."\n";
+			$message .= 'password:'.$pass."\n";
 			$from = "Paxi";
 			$headers = "From:" . $from;
 			$send_mail = mail($to,$subject,$message,$headers);
 			if($send_mail > 0){
+				
+				$array = array('password'=>md5($pass));
+				
+				update('users',$array,$id,'id');
 				$msg['return'] = 1;
 				$msg['result'] = 'suucess';
 				$msg['data']   = 'Your password has been reset';
@@ -232,13 +238,39 @@ function editProfile($data = NULL){
 			unset($data['auth_key']);
 			$condtion = array('userid'=>$userid);
 			if(isset($data['username'])){
-				$userArray['username'] = $data['username']; 
+				
+				$con = 'AND';
+				
+				$array = array('username'=>$data['username']);
+				
+				$res = $db->select('users',$array,$con);
+				
+				if(mysql_num_rows($res)){
+					$msg['return'] = 0;
+					$msg['result'] = 'error';
+					$msg['data']   = 'username already exist with us.please try with another';
+				} else {
+					$userArray['username'] = $data['username']; 
+					
+				}
 			}
 			if(isset($data['password'])){
-				$userArray['password'] = $data['password'];	
+				$userArray['password'] = md5($data['password']);	
 			}
 			if(isset($data['email'])){
-				$userArray['email'] = $data['email'];	
+				$con = 'AND';
+				
+				$array = array('email'=>$data['email']);
+				
+				$res = $db->select('users',$array,$con);
+				
+				if(mysql_num_rows($res)){
+					$msg['return'] = 0;
+					$msg['result'] = 'error';
+					$msg['data']   = 'email already exist with us.please try with another';
+				} else {
+					$userArray['email'] = $data['email'];
+				}	
 			}
 			if(isset($data['phone'])){
 				$userArray['phone'] = $data['phone'];	
@@ -263,13 +295,38 @@ function editProfile($data = NULL){
 			unset($data['auth_key']);
 			$condtion = array('userid'=>$userid);
 			if(isset($data['username'])){
-				$userArray['username'] = $data['username']; 
+				$con = 'AND';
+				
+				$array = array('username'=>$data['username']);
+				
+				$res = $db->select('drivers',$array,$con);
+				
+				if(mysql_num_rows($res)){
+					$msg['return'] = 0;
+					$msg['result'] = 'error';
+					$msg['data']   = 'username already exist with us.please try with another';
+				} else {
+					$userArray['username'] = $data['username']; 
+					
+				} 
 			}
 			if(isset($data['password'])){
 				$userArray['password'] = $data['password'];	
 			}
 			if(isset($data['email'])){
-				$userArray['email'] = $data['email'];	
+				$con = 'AND';
+				
+				$array = array('email'=>$data['email']);
+				
+				$res = $db->select('drivers',$array,$con);
+				
+				if(mysql_num_rows($res)){
+					$msg['return'] = 0;
+					$msg['result'] = 'error';
+					$msg['data']   = 'email already exist with us.please try with another';
+				} else {
+					$userArray['email'] = $data['email'];
+				}	
 			}
 			if(isset($data['phone'])){
 				$userArray['phone'] = $data['phone'];	
@@ -677,8 +734,8 @@ function sendRequest($data = NULL){
 			
 		 	$device_token = $db->getDeviceToken($userid['userid']);
 			
-			//$msg = 'testig message'; 
-			//$send_notification = $db->sendNotification($device_token,$msg);
+			//$msg1 = 'testig message'; 
+			//$send_notification = $db->sendNotification($device_token,$msg1,$data['mode']);
 			
 			
 			$msg['return'] = 1;
@@ -750,8 +807,8 @@ function usersToDrivers($data = NULL){
 			
 		 	$device_token = $db->getDeviceToken($userid['userid']);
 			
-			$msg = 'testig message'; 
-			//$send_notification = $db->sendNotification($device_token,$msg);
+			$msg1 = 'testig message'; 
+			$send_notification = $db->sendNotification($device_token,$msg1,$data['mode']);
 			
 			$condition = "AND";
 			$arr = array(
@@ -824,10 +881,21 @@ function getRequest($data = NULL){
 	$users = array();
 	if(!empty($data['driverid'])){
 	
-	
+		
+			$con = 'AND';
 			
-			$qry = "SELECT * FROM `airport_services` WHERE request_status = 'pending'
-					OR request_status = 'approved'";
+			$arr = array('driverid'=>$data['driverid']);
+			
+			$driver_to_user = $db->select('accept_airport_request',$arr,$con);
+			
+			while($result_row = mysql_fetch_assoc($driver_to_user)){
+				$userid[] = $result_row['requestid'];
+			}
+			if(!empty($userid)){
+				
+				$reuestid = implode(',',$userid);
+				
+			$qry = "SELECT * FROM `airport_services` WHERE id IN ($reuestid)";
 			
 			$result = mysql_query($qry);
 			
@@ -842,20 +910,6 @@ function getRequest($data = NULL){
 				$second_total = (int)$first_ammount[1] + (int)$second_ammount[1];
 			while($row_result = mysql_fetch_assoc($result)){
 				
-				
-				
-				$query = "SELECT * FRom user_to_driver WHERE 
-						requestid ='".$row_result['id']."' AND 
-						driverid = '".$data['driverid']."'";
-				
-				$res = mysql_query($query);
-				
-				if(mysql_num_rows($res) > 0){
-					
-					$driver_request = 'yes';
-				} else {
-					$driver_request = 'no';
-				}
 				
 				$users[] = array(
 								 'requestid'=>$row_result['id'],
@@ -882,12 +936,12 @@ function getRequest($data = NULL){
 								 
 								 'total'=>$first_total.'-'.$second_total,
 								 
-								 'is_Accepted'=>$driver_request,
+								 'is_Accepted'=>$row_result['request_status'],
 								 
 								 'drop_location'=>$row_result['drop_location']
 								);
 			}
-			
+		}	
 			$msg['return'] = 1;
 		
 			$msg['result'] = 'success';
@@ -1288,8 +1342,8 @@ function finishedTaxiRequest($data){
 			
 		 	$device_token = $db->getDeviceToken($userid['userid']);
 			
-			//$msg = 'testig message'; 
-			//$send_notification = $db->sendNotification($device_token,$msg);
+			$msg1 = 'testig message'; 
+			$send_notification = $db->sendNotification($device_token,$msg,$data['mode']);
 			
 			$qry = "UPDATE `taxi_services` SET
 				    `status` = 'complet'
@@ -1652,8 +1706,32 @@ function getTotalDriverRequest($data = NULL){
 	  
 	  if(!empty($data['driverid']) ){
 	  
-	  	
-		
+	  		$con = 'AND';
+			
+			$arr = array('driverid'=>$data['driverid']);
+			
+			$driver_to_user = $db->select('accept_airport_request',$arr,$con);
+			
+			while($result_row = mysql_fetch_assoc($driver_to_user)){
+				$userid[] = $result_row['requestid'];
+			}
+			
+			
+			if(!empty($userid)){
+				
+				$ids = implode(',',$userid);
+				
+				$str = "SELECT * FROM airport_services WHERE id IN ($ids)
+						AND request_status = 'pending'";
+				$exe = mysql_query($str);
+				
+				$total_row = mysql_num_rows($exe);
+			} else {
+				$total_row  =0;
+			}
+			
+			
+			
 	  		$qry = "SELECT COUNT(*) as total from taxi_services 
 					WHERE status = 'pending'";
 					
@@ -1663,18 +1741,20 @@ function getTotalDriverRequest($data = NULL){
 			
 			$total_request = $total['total'];
 			
-			$qry1 = "SELECT COUNT(*) as total from accept_airport_request 
-					WHERE driverid = '".$data['driverid']."'";
+			
+			
+			//$qry1 = "SELECT COUNT(*) as total from accept_airport_request 
+					//WHERE driverid = '".$data['driverid']."' ";
 					
-			$res1 = mysql_query($qry1);
+			//$res1 = mysql_query($qry1);
 			
-			$total1 = mysql_fetch_assoc($res1);
+			//$total1 = mysql_fetch_assoc($res1);
 			
-			$total_request1 = $total1['total'];
+			//$total_request1 = $total1['total'];
 			
 			$array = array(
 							'total_taxi_request'=>$total_request,
-							'total_airport_request'=>$total_request1
+							'total_airport_request'=>$total_row
 						   );
 			
 			$msg['return'] = 1;
@@ -1749,7 +1829,7 @@ function emailVerfication($data = NULL){
 			
 			$userArray['email'] =  $data['email'];  
 			
-			$userArray['password'] =  $data['password'];
+			$userArray['password'] =  md5($data['password']);
 			
 			$userArray['email_active'] =  'yes'; 
 			
@@ -1866,7 +1946,7 @@ function cardDetails($data = NULL){
 
 }
 /***************************************************************************************
-*	Function for pick up location of the users
+*	Function for pick up location
 *************************************************************************************/
 function pickUpLocation($data = NULL){
 
